@@ -1,67 +1,37 @@
 version: 2.1
 jobs:
-  compile:
-   docker:
-      - image: ubuntu:18.04
-   environment:
-      GIT_EMAIL: 'romadhonadipermana279f@gmail.com'
-      GIT_NAME: 'adislice'
+  build:
+    docker:
+      - image: fr3akyphantom/droid-builder:latest
+    environment:
+      MANIFEST_BRANCH: 'android-9.0'
+      # PBRP_BRANCH: '' # optional, if not default 'android-9.0', define other bootable_recovery branch
+      VERSION: '3.0.0' # as of now, the current PBRP version
+      MAINTAINER: '@Sathamspot (PBRP Team)'
       VENDOR: 'xiaomi'
-      DEVICE: 'ugglite'
-      VERSION: '3.3.1'
-      chat_id: '-1001451919717'
-   steps:
+      CODENAME: 'ugg'
+      FLAVOR: 'eng'
+      TEST_BUILD: 'true'
+      # PB_OFFICIAL: 'true'
+      CHANGELOG: " - Initial build"
+    working_directory: /home/builder/pitchblack
+    steps:
       - run:
+          name: AIO Build
           command: |
-           apt-get -y update && apt-get -y upgrade && apt-get -y install python3-setuptools python3-pip python3 python bc bison build-essential curl flex g++-multilib gcc gcc-multilib clang git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-dev libxml2 libxml2-utils lzop pngcrush schedtool squashfs-tools xsltproc zip zlib1g-dev unzip openjdk-8-jdk python ccache libtinfo5 repo libstdc++6 wget libssl-dev rsync golang-go
-           mkdir -p ~/bin
-           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-           chmod a+x ~/bin/repo
-           go get -u github.com/tcnksm/ghr
-           export PATH=/root/go/bin:$PATH
-           git config --global user.email "${GIT_EMAIL}"
-           git config --global user.name "{GIT_NAME}"
-           git config --global color.ui false
-           git clone https://github.com/frelein29/PublishBot PublishBot
-           pip3 install wheel
-           pip3 install --user -r PublishBot/requirements.txt
-           repo init --depth=1 -u git://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-9.0
-           repo sync
-           git clone https://github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME} -b ${CIRCLE_BRANCH} device/${VENDOR}/${DEVICE}
-           python3 PublishBot/main.py --before
-           export ALLOW_MISSING_DEPENDENCIES=true
-           export LC_ALL=C
-           source build/envsetup.sh
-           lunch omni_${DEVICE}-eng
-           make recoveryimage
-           ls -lh $(pwd)/out/target/product/${DEVICE}/
-           export OUT_FILE_IMG=out/target/product/${DEVICE}/twrp-3.3.1-ugglite-$(date "+%Y%m%d")-$(date "+%H%M").img
-           mv out/target/product/ugglite/recovery.img ${OUT_FILE_IMG}
-           export BUILDFILE_IMG=$(find $(pwd)/out/target/product/${DEVICE}/recovery.img 2>/dev/null)
-           export UPLOAD_PATH=$(pwd)/out/target/product/${DEVICE}/upload/
-           echo ${OUT_FILE_IMG}
-           echo $UPLOAD_PATH
-           mkdir ${UPLOAD_PATH}
-           cp ${OUT_FILE_IMG} $UPLOAD_PATH
-           ls $UPLOAD_PATH
-           
-           if [ -f ${OUT_FILE_IMG} ]; then
-             export product_filename=${OUT_FILE_IMG}
-             python3 PublishBot/main.py --after
-           else
-             python3 PublishBot/main.py --fail
-             exit 1
-           fi
-           ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -n "TeamWin Recovery Project $(echo $DEVICE)" -b "TWRP $(echo $VERSION)"  -c ${CIRCLE_SHA1} -delete ${VERSION} ${UPLOAD_PATH}
-           output_file=$(find out/target/product/ugglite/ -name "*.img")
-           
-      - run:
-           name: Run on fail status
-           command: |
-              python3 PublishBot/main.py --fail
-           when: on_fail
+            echo "Set GitAuth Infos"
+            git config --global user.email $GitHubMail
+            git config --global user.name $GitHubName
+            git config --global credential.helper store
+            git config --global color.ui true
+            wget -q https://raw.githubusercontent.com/PitchBlackRecoveryProject/vendor_utils/pb/build.sh
+            source build.sh
 workflows:
-  version: 2.1
-  cooking:
+  version: 2
+  build_and_test:
     jobs:
-      - compile
+      - build:
+          filters:
+            branches:
+              only: 'android-9.0'
+          context: org-global
